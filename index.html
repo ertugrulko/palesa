@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Palesa's Garden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Jost:wght@400;500&family=Pinyon+Script&display=swap">
+<style>
+/* Layout: full-bleed WebGL night garden; a thin type layer floats above it (intro centered, messages at the foot) */
+:root {
+  --night: #07040d;
+  --plum: #1a0b22;
+  --rose: #f2709c;
+  --blush: #ffd6e3;
+  --gold: #f6c978;
+  --ink: #fbeff4;
+  --muted: rgba(251, 239, 244, 0.62);
+  --script: "Pinyon Script", "Snell Roundhand", "Apple Chancery", cursive;
+  --serif: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  --ui: "Jost", "Avenir Next", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--serif);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+body.no-gl { background: radial-gradient(ellipse at 50% 45%, #3a0f2c 0%, var(--plum) 40%, var(--night) 80%); }
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; }
+
+#intro {
+  position: fixed; inset: 0; z-index: 5;
+  display: grid; place-items: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 24px);
+  background: radial-gradient(ellipse at 50% 50%, rgba(7, 4, 13, 0.25) 0%, rgba(7, 4, 13, 0.82) 70%);
+  transition: opacity 1.6s ease, transform 1.6s ease;
+}
+#intro.gone { opacity: 0; transform: scale(1.06); pointer-events: none; }
+.intro-inner { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; max-width: 36rem; }
+.eyebrow {
+  font-family: var(--ui); font-size: 12px; letter-spacing: 0.34em; text-transform: uppercase;
+  color: var(--gold); margin: 0;
+}
+#intro h1 {
+  margin: 0; font-family: var(--script); font-weight: 400;
+  font-size: clamp(84px, 22vw, 176px); line-height: 1.05;
+  padding: 0 0.2em;
+  background: linear-gradient(100deg, var(--blush) 10%, var(--rose) 48%, var(--gold) 92%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 28px rgba(242, 112, 156, 0.45));
+  text-wrap: balance;
+}
+.intro-line { margin: 0; font-style: italic; font-size: clamp(19px, 4.6vw, 24px); color: var(--muted); line-height: 1.45; max-width: 26ch; }
+#start {
+  margin-top: 10px;
+  font-family: var(--ui); font-size: 13px; font-weight: 500; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(242, 112, 156, 0.14);
+  border: 1px solid rgba(246, 201, 120, 0.55);
+  border-radius: 999px;
+  padding: 16px 36px 16px 40px;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(242, 112, 156, 0.5);
+  animation: breathe 2.8s ease-in-out infinite;
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+#start:hover { background: rgba(242, 112, 156, 0.28); transform: translateY(-1px); }
+#start:focus-visible { outline: 2px solid var(--gold); outline-offset: 5px; }
+.small-note { font-family: var(--ui); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin: 0; }
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(242, 112, 156, 0.0), 0 0 24px rgba(242, 112, 156, 0.25); }
+  50% { box-shadow: 0 0 0 10px rgba(242, 112, 156, 0.08), 0 0 44px rgba(242, 112, 156, 0.45); }
+}
+
+#ui {
+  position: fixed; inset: 0; z-index: 3; pointer-events: none;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 28px);
+}
+#msg {
+  margin: 0; min-height: 2.9em; max-width: 28ch;
+  display: flex; align-items: flex-end; justify-content: center;
+  text-align: center; font-style: italic; font-weight: 500;
+  font-size: clamp(21px, 5vw, 32px); line-height: 1.3;
+  color: var(--ink);
+  text-shadow: 0 0 18px rgba(242, 112, 156, 0.7), 0 0 2px rgba(7, 4, 13, 0.9);
+  text-wrap: balance;
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+#msg.out { opacity: 0; transform: translateY(10px); }
+#hint {
+  margin: 0; font-family: var(--ui); font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--gold); opacity: 0; transition: opacity 1.5s ease;
+}
+#hint.show { opacity: 0.8; }
+
+#sound {
+  position: fixed; z-index: 4;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  right: calc(env(safe-area-inset-right, 0px) + 16px);
+  width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(26, 11, 34, 0.55);
+  border: 1px solid rgba(246, 201, 120, 0.4);
+  color: var(--blush); cursor: pointer;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+#sound:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+#sound svg { width: 20px; height: 20px; }
+#sound .wave { transition: opacity 0.3s; }
+#sound[aria-pressed="false"] .wave { opacity: 0; }
+#sound .slash { opacity: 0; transition: opacity 0.3s; }
+#sound[aria-pressed="false"] .slash { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  #start { animation: none; }
+  #intro, #msg { transition-duration: 0.4s; }
+}
+</style>
+
+</head>
+<body>
+<canvas id="scene" aria-label="A 3D rose blooming for Palesa, with her name circling around it"></canvas>
+
+<div id="ui" aria-live="polite">
+  <p id="msg" class="out"></p>
+  <p id="hint">Tap anywhere</p>
+</div>
+
+<audio id="song" src="song.mp3" loop preload="auto"></audio>
+
+<button id="sound" type="button" aria-pressed="true" aria-label="Mute sound" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" fill-opacity="0.25"/>
+    <path class="wave" d="M15.5 9a4 4 0 0 1 0 6"/>
+    <path class="wave" d="M18 6.5a7.5 7.5 0 0 1 0 11"/>
+    <path class="slash" d="M16 9.5l5 5M21 9.5l-5 5"/>
+  </svg>
+</button>
+
+<section id="intro">
+  <div class="intro-inner">
+    <p class="eyebrow">A little garden, just for you</p>
+    <h1>Palesa</h1>
+    <p class="intro-line">This flower has been waiting for you. One touch is all it needs to bloom.</p>
+    <button id="start" type="button">Open the garden</button>
+    <p class="small-note">Sound on · tap anywhere</p>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+(() => {
+  const MESSAGES = [
+    "Palesa, this flower bloomed only for you.",
+    "Your name is hidden in every petal.",
+    "Your smile shines brighter than every light in this garden.",
+    "With you, every season is spring.",
+    "Tap the screen and let the flowers bloom for you.",
+    "I'm so glad you exist, Palesa.",
+    "I love you so much."
+  ];
+  const HEART_MESSAGE = "My heart is always yours, Palesa.";
+  const SCRIPT = '"Pinyon Script", "Snell Roundhand", "Apple Chancery", cursive';
+
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const M = reduce ? 0.35 : 1;
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+  const intro = document.getElementById("intro");
+  const startBtn = document.getElementById("start");
+  const soundBtn = document.getElementById("sound");
+  const msgEl = document.getElementById("msg");
+  const hintEl = document.getElementById("hint");
+
+  /* ---------- messages ---------- */
+  let msgIndex = 0, msgTimer = null, msgSwap = null;
+  function setMsg(s) {
+    msgEl.classList.add("out");
+    clearTimeout(msgSwap);
+    msgSwap = setTimeout(() => { msgEl.textContent = s; msgEl.classList.remove("out"); }, 900);
+  }
+  function nextMsg() { setMsg(MESSAGES[msgIndex % MESSAGES.length]); msgIndex++; }
+  function startMessages() { nextMsg(); clearInterval(msgTimer); msgTimer = setInterval(nextMsg, 6500); }
+  function interruptMsg(s) { setMsg(s); clearInterval(msgTimer); msgTimer = setInterval(nextMsg, 6500); }
+
+  /* ---------- audio: soft pad + bells, synthesized ---------- */
+  let actx = null, master = null, muted = false, padBus = null, bellBus = null, audioTimers = [];
+  const VOL = 0.55;
+  // Dbmaj7 – C7 – Fm7 – Ebm7 Ab7, one bar each (last bar split), in F minor
+  const BAR = 2.6;
+  const CHORDS = [
+    { bass: 69.30, notes: [138.59, 174.61, 207.65, 261.63], bars: 1 },
+    { bass: 65.41, notes: [130.81, 164.81, 196.0, 233.08], bars: 1 },
+    { bass: 87.31, notes: [174.61, 207.65, 261.63, 311.13], bars: 1 },
+    { bass: 77.78, notes: [155.56, 185.0, 233.08, 277.18], bars: 0.5 },
+    { bass: 103.83, notes: [130.81, 155.56, 185.0, 207.65], bars: 0.5 }
+  ];
+  const PENTA = [523.25, 622.25, 698.46, 830.61, 932.33, 1046.5, 1244.51, 1396.91, 1661.22];
+  function startAudio() {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    const now = actx.currentTime;
+    master = actx.createGain();
+    master.gain.setValueAtTime(0, now);
+    master.gain.linearRampToValueAtTime(VOL, now + 3);
+    master.connect(actx.destination);
+
+    const conv = actx.createConvolver();
+    const len = Math.floor(actx.sampleRate * 3.6);
+    const ir = actx.createBuffer(2, len, actx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8);
+    }
+    conv.buffer = ir;
+    const verb = actx.createGain(); verb.gain.value = 0.85;
+    verb.connect(conv); conv.connect(master);
+    const dry = actx.createGain(); dry.gain.value = 0.55; dry.connect(master);
+    const delay = actx.createDelay(1.5); delay.delayTime.value = 0.42;
+    const fb = actx.createGain(); fb.gain.value = 0.33;
+    delay.connect(fb); fb.connect(delay); delay.connect(verb);
+
+    const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 950; lp.Q.value = 0.4;
+    padBus = lp; lp.connect(dry); lp.connect(verb);
+    bellBus = actx.createGain(); bellBus.connect(dry); bellBus.connect(verb); bellBus.connect(delay);
+
+    let ci = 0, nextAt = actx.currentTime + 0.1;
+    const chord = () => {
+      if (!actx) return;
+      const c = CHORDS[ci++ % CHORDS.length];
+      if (nextAt < actx.currentTime) nextAt = actx.currentTime + 0.05;
+      playChord(c, nextAt, c.bars * BAR);
+      nextAt += c.bars * BAR;
+      audioTimers.push(setTimeout(chord, Math.max((nextAt - actx.currentTime - 0.4) * 1000, 0)));
+    };
+    chord();
+    const bell = () => {
+      if (!actx) return;
+      const f = PENTA[Math.floor(Math.random() * PENTA.length)];
+      playBell(f, actx.currentTime + 0.02, 0.05);
+      audioTimers.push(setTimeout(bell, rand(700, 1900)));
+    };
+    audioTimers.push(setTimeout(bell, 1500));
+  }
+  function playChord(c, t0, dur) {
+    // soft electric-piano chord: quick attack, slow fade, held for the bar
+    c.notes.forEach((f, n) => {
+      const ts = t0 + n * 0.018;
+      [-5, 5].forEach(det => {
+        const o = actx.createOscillator(); o.type = "triangle"; o.frequency.value = f; o.detune.value = det;
+        const g = actx.createGain();
+        g.gain.setValueAtTime(0, ts);
+        g.gain.linearRampToValueAtTime(0.045, ts + 0.04);
+        g.gain.setTargetAtTime(0.022, ts + 0.05, 0.6);
+        g.gain.setTargetAtTime(0, t0 + dur - 0.05, 0.25);
+        o.connect(g); g.connect(padBus); o.start(ts); o.stop(t0 + dur + 1.5);
+      });
+    });
+    const b = actx.createOscillator(); b.type = "sine"; b.frequency.value = c.bass * 2;
+    const bg = actx.createGain();
+    bg.gain.setValueAtTime(0, t0);
+    bg.gain.linearRampToValueAtTime(0.11, t0 + 0.03);
+    bg.gain.setTargetAtTime(0.05, t0 + 0.05, 0.5);
+    bg.gain.setTargetAtTime(0, t0 + dur - 0.05, 0.15);
+    b.connect(bg); bg.connect(padBus); b.start(t0); b.stop(t0 + dur + 1);
+  }
+  function playBell(f, t0, gain) {
+    [[1, gain, 3.2], [2.01, gain * 0.22, 1.2], [3.0, gain * 0.08, 0.6]].forEach(([mul, gv, dur]) => {
+      const o = actx.createOscillator(); o.type = "sine"; o.frequency.value = f * mul;
+      const g = actx.createGain();
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gv, t0 + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(bellBus); o.start(t0); o.stop(t0 + dur + 0.05);
+    });
+  }
+  function sparkle() {
+    if (!actx || muted) return;
+    const base = Math.floor(rand(3, PENTA.length - 3));
+    for (let i = 0; i < 3; i++) playBell(PENTA[base + i], actx.currentTime + 0.02 + i * 0.075, 0.045);
+  }
+  /* the real song; the synthesized music above is the fallback if it cannot play */
+  const song = document.getElementById("song");
+  let useSong = false;
+  function startMusic() {
+    song.volume = 0;
+    let p;
+    try { p = song.play(); } catch (e) { startAudio(); return; }
+    if (!p || !p.then) { useSong = true; fadeSong(); return; }
+    p.then(() => { useSong = true; fadeSong(); }).catch(() => startAudio());
+  }
+  function fadeSong() {
+    const t = setInterval(() => {
+      song.volume = Math.min(1, song.volume + 0.05);
+      if (song.volume >= 1) clearInterval(t);
+    }, 150);
+  }
+  function setMuted(m) {
+    muted = m;
+    soundBtn.setAttribute("aria-pressed", String(!m));
+    soundBtn.setAttribute("aria-label", m ? "Unmute sound" : "Mute sound");
+    if (useSong) {
+      song.muted = m;
+      if (!m && song.paused) song.play().catch(() => {});
+      return;
+    }
+    if (!actx) return;
+    if (!m && actx.state === "suspended") actx.resume();
+    master.gain.cancelScheduledValues(actx.currentTime);
+    master.gain.setTargetAtTime(m ? 0 : VOL, actx.currentTime, 0.25);
+  }
+  soundBtn.addEventListener("click", () => setMuted(!muted));
+  document.addEventListener("visibilitychange", () => {
+    if (useSong) {
+      if (document.hidden) song.pause(); else if (!muted) song.play().catch(() => {});
+      return;
+    }
+    if (!actx) return;
+    if (document.hidden) actx.suspend(); else if (!muted) actx.resume();
+  });
+
+  /* ---------- start ---------- */
+  let started = false, startTime = 0, time = 0;
+  startBtn.addEventListener("click", () => {
+    if (started) return;
+    started = true; startTime = time;
+    intro.classList.add("gone");
+    setTimeout(() => { intro.hidden = true; }, 1700);
+    soundBtn.hidden = false;
+    startMusic();
+    setTimeout(startMessages, 4200);
+    setTimeout(() => hintEl.classList.add("show"), 11000);
+  });
+
+  /* ---------- WebGL ---------- */
+  if (!window.THREE) { document.body.classList.add("no-gl"); return; }
+  const canvas = document.getElementById("scene");
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+  } catch (e) { document.body.classList.add("no-gl"); return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setClearColor(0x07040d, 1);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x07040d, 0.022);
+  const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 220);
+  const target = new THREE.Vector3(0, 1.0, 0);
+  let dist = 11;
+
+  scene.add(new THREE.AmbientLight(0x4a2246, 0.45));
+  scene.add(new THREE.HemisphereLight(0xffc6dc, 0x1c0620, 0.45));
+  const key = new THREE.DirectionalLight(0xffe8f0, 0.75); key.position.set(3, 7, 6); scene.add(key);
+  const core = new THREE.PointLight(0xffc27a, 2.4, 7, 1.6); core.position.set(0, 0.9, 0); scene.add(core);
+  const rimA = new THREE.PointLight(0x8a5cff, 1.6, 22); rimA.position.set(-5, 2.5, -4); scene.add(rimA);
+  const rimB = new THREE.PointLight(0xff4d8d, 1.3, 22); rimB.position.set(5, -1, -3); scene.add(rimB);
+
+  /* petal geometry: a bent, cupped plane with a colour ramp from base to tip */
+  const ROSE = [0x4a031f, 0xc92a5e, 0xf28fb2];
+  const LEAF = [0x08301a, 0x2c7a3e, 0x8fd18a];
+  function petalGeo(len, wid, cup, curl, stops, tone, su = 10, sv = 20) {
+    const g = new THREE.PlaneGeometry(1, 1, su, sv);
+    const pos = g.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    const c0 = new THREE.Color(stops[0]), c1 = new THREE.Color(stops[1]), c2 = new THREE.Color(stops[2]), c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const u = pos.getX(i), v = pos.getY(i) + 0.5;
+      const w = Math.sin(Math.PI * (Math.pow(v, 1.35) * 0.9 + 0.05));
+      const x = u * wid * w;
+      const y = v * len;
+      let z = -cup * Math.pow(2 * u, 2) * w * wid * 0.5 + curl * Math.pow(v, 2.6) * len;
+      z += 0.022 * len * Math.sin(u * 14 + v * 9) * Math.abs(2 * u) * v;
+      pos.setXYZ(i, x, y, z);
+      if (v < 0.45) c.copy(c0).lerp(c1, v / 0.45); else c.copy(c1).lerp(c2, (v - 0.45) / 0.55);
+      const vein = 1 - 0.14 * Math.exp(-Math.pow(u * 9, 2)) * (1 - v);
+      const edge = 1 + 0.12 * Math.abs(2 * u) * v;
+      c.multiplyScalar(tone * vein * edge);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    return g;
+  }
+
+  /* the rose */
+  const flower = new THREE.Group();
+  flower.scale.setScalar(1.15);
+  scene.add(flower);
+  const petalMat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.55, metalness: 0, emissive: 0x3a0618, emissiveIntensity: 0.35 });
+  const leafMat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.6, emissive: 0x051a0c, emissiveIntensity: 0.6 });
+  const petals = [];
+  const LAYERS = 7;
+  for (let L = 0; L < LAYERS; L++) {
+    const k = L / (LAYERS - 1);
+    const count = 5 + L;
+    const geo = petalGeo(0.55 + k * 1.35, 0.5 + k * 0.95, 0.36 - k * 0.12, 0.1 + k * 0.22, ROSE, 0.72 + 0.3 * k);
+    for (let i = 0; i < count; i++) {
+      const pivot = new THREE.Group();
+      pivot.rotation.y = (i / count) * Math.PI * 2 + L * 0.9;
+      const hinge = new THREE.Group();
+      hinge.position.set(0, -k * 0.18, 0.04 + k * 0.22);
+      hinge.add(new THREE.Mesh(geo, petalMat));
+      pivot.add(hinge); flower.add(pivot);
+      petals.push({ hinge, closed: 0.05 + k * 0.1, open: 0.18 + Math.pow(k, 1.2) * 1.35 + rand(-0.05, 0.05), delay: (1 - k) * 0.35, wob: rand(0, 6.28) });
+    }
+  }
+  const sepalGeo = petalGeo(1.5, 0.42, 0.2, 0.15, LEAF, 0.9);
+  for (let i = 0; i < 5; i++) {
+    const pivot = new THREE.Group(); pivot.rotation.y = (i / 5) * Math.PI * 2 + 0.3;
+    const hinge = new THREE.Group(); hinge.position.set(0, -0.32, 0.2);
+    hinge.add(new THREE.Mesh(sepalGeo, leafMat));
+    pivot.add(hinge); flower.add(pivot);
+    petals.push({ hinge, closed: 0.5, open: 1.95, delay: 0, wob: rand(0, 6.28) });
+  }
+  const stemCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, -0.3, 0), new THREE.Vector3(0.15, -2, 0.1), new THREE.Vector3(-0.2, -4.2, 0), new THREE.Vector3(0.1, -8, -0.2)
+  ]);
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x1f5a35, roughness: 0.7, emissive: 0x06200f, emissiveIntensity: 0.8 });
+  flower.add(new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 64, 0.07, 8), stemMat));
+  const leafGeo = petalGeo(1.5, 0.75, 0.28, -0.06, LEAF, 1);
+  [[0.32, 0.4], [0.55, 3.4]].forEach(([t, ang]) => {
+    const p = stemCurve.getPoint(t);
+    const pivot = new THREE.Group(); pivot.position.copy(p); pivot.rotation.y = ang;
+    const hinge = new THREE.Group(); hinge.rotation.x = 1.05;
+    hinge.add(new THREE.Mesh(leafGeo, leafMat));
+    pivot.add(hinge); flower.add(pivot);
+  });
+
+  /* soft glow sprite in the heart of the rose */
+  function radialTex(inner, outer) {
+    const cv = document.createElement("canvas"); cv.width = cv.height = 256;
+    const g = cv.getContext("2d");
+    const gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gr.addColorStop(0, inner); gr.addColorStop(0.35, outer); gr.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(cv);
+  }
+  const glowMat = new THREE.SpriteMaterial({ map: radialTex("rgba(255,226,170,1)", "rgba(242,90,140,0.35)"), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.7 });
+  const glow = new THREE.Sprite(glowMat); glow.position.set(0, 0.45, 0); glow.scale.set(3, 3, 1); flower.add(glow);
+  const haloMat = new THREE.SpriteMaterial({ map: radialTex("rgba(140,60,200,0.5)", "rgba(80,20,90,0.18)"), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.55 });
+  const halo = new THREE.Sprite(haloMat); halo.position.set(0, 0.6, -2); halo.scale.set(16, 16, 1); scene.add(halo);
+
+  /* ---------- glowing points (shared shader) ---------- */
+  const PV = `
+    uniform float uScale; uniform float uTime; uniform float uTwinkle;
+    attribute float aSize; attribute vec3 aColor; attribute float aPhase; attribute float aAlpha;
+    varying vec3 vColor; varying float vAlpha;
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      float tw = 1.0 - uTwinkle * 0.5 * (1.0 + sin(uTime * (1.2 + aPhase * 1.7) + aPhase * 6.2831));
+      vColor = aColor; vAlpha = aAlpha * (0.35 + 0.65 * tw);
+      gl_PointSize = max(aSize * uScale / -mv.z, 0.0);
+      gl_Position = projectionMatrix * mv;
+    }`;
+  const PF = `
+    uniform float uOpacity; varying vec3 vColor; varying float vAlpha;
+    void main() {
+      float d = length(gl_PointCoord - 0.5);
+      if (d > 0.5) discard;
+      float glow = exp(-d * d * 16.0);
+      float spark = exp(-d * d * 110.0);
+      gl_FragColor = vec4((vColor * glow + vec3(1.0) * spark * 0.55) * uOpacity * vAlpha, 1.0);
+    }`;
+  const pointMats = [];
+  function makePoints(n, twinkle) {
+    const geo = new THREE.BufferGeometry();
+    const P = {
+      n, geo,
+      pos: new Float32Array(n * 3), col: new Float32Array(n * 3),
+      size: new Float32Array(n), phase: new Float32Array(n), alpha: new Float32Array(n).fill(1)
+    };
+    geo.setAttribute("position", new THREE.BufferAttribute(P.pos, 3));
+    geo.setAttribute("aColor", new THREE.BufferAttribute(P.col, 3));
+    geo.setAttribute("aSize", new THREE.BufferAttribute(P.size, 1));
+    geo.setAttribute("aPhase", new THREE.BufferAttribute(P.phase, 1));
+    geo.setAttribute("aAlpha", new THREE.BufferAttribute(P.alpha, 1));
+    P.mat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uScale: { value: 500 }, uOpacity: { value: 1 }, uTwinkle: { value: twinkle } },
+      vertexShader: PV, fragmentShader: PF, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    pointMats.push(P.mat);
+    P.pts = new THREE.Points(geo, P.mat);
+    P.pts.frustumCulled = false;
+    return P;
+  }
+  const tmpC = new THREE.Color();
+  function setCol(P, i, hex, mul = 1) { tmpC.set(hex).multiplyScalar(mul); P.col[i * 3] = tmpC.r; P.col[i * 3 + 1] = tmpC.g; P.col[i * 3 + 2] = tmpC.b; }
+
+  /* stars */
+  const stars = makePoints(2000, 1);
+  for (let i = 0; i < stars.n; i++) {
+    const r = rand(28, 75), th = rand(0, Math.PI * 2), ph = Math.acos(rand(-1, 1));
+    stars.pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+    stars.pos[i * 3 + 1] = r * Math.cos(ph) * 0.8 + 4;
+    stars.pos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th) - 10;
+    stars.size[i] = rand(0.1, 0.42) * (Math.random() < 0.04 ? 2.2 : 1);
+    stars.phase[i] = Math.random();
+    setCol(stars, i, [0xffffff, 0xffd6e3, 0xd7c6ff, 0xf6c978][Math.floor(Math.random() * 4)], rand(0.5, 1));
+  }
+  scene.add(stars.pts);
+
+  /* fireflies orbiting the rose */
+  const flies = makePoints(140, 0.9);
+  const flyP = [];
+  for (let i = 0; i < flies.n; i++) {
+    flyP.push({ r: rand(1.6, 7), a: rand(0, 6.28), s: rand(0.05, 0.22) * (Math.random() < 0.5 ? -1 : 1), y: rand(-2.5, 5.5), f: rand(0.3, 0.9), ph: rand(0, 6.28) });
+    flies.size[i] = rand(0.05, 0.14); flies.phase[i] = Math.random();
+    setCol(flies, i, Math.random() < 0.7 ? 0xf6c978 : 0xff9ec0, rand(0.7, 1.1));
+  }
+  scene.add(flies.pts);
+
+  /* golden pollen in the cup + motes rising from it */
+  const pollen = makePoints(180, 0.6);
+  for (let i = 0; i < pollen.n; i++) {
+    const r = Math.cbrt(Math.random()) * 0.28, th = rand(0, 6.28), ph = Math.acos(rand(-1, 1));
+    pollen.pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+    pollen.pos[i * 3 + 1] = 0.35 + r * Math.cos(ph) * 0.6;
+    pollen.pos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+    pollen.size[i] = rand(0.025, 0.06); pollen.phase[i] = Math.random();
+    setCol(pollen, i, 0xffd88a, rand(0.8, 1.2));
+  }
+  flower.add(pollen.pts);
+  const motes = makePoints(220, 0.6);
+  const moteS = new Float32Array(motes.n);
+  for (let i = 0; i < motes.n; i++) {
+    const r = Math.sqrt(Math.random()) * 1.3, th = rand(0, 6.28);
+    motes.pos[i * 3] = r * Math.cos(th); motes.pos[i * 3 + 1] = rand(0.4, 7); motes.pos[i * 3 + 2] = r * Math.sin(th);
+    moteS[i] = rand(0.25, 0.7); motes.size[i] = rand(0.03, 0.08); motes.phase[i] = Math.random();
+    setCol(motes, i, Math.random() < 0.6 ? 0xffd88a : 0xffb3cf, rand(0.7, 1));
+  }
+  scene.add(motes.pts);
+
+  /* sparks from taps */
+  const sparks = makePoints(1400, 0);
+  const sparkV = new Float32Array(sparks.n * 3), sparkL = new Float32Array(sparks.n);
+  sparks.alpha.fill(0);
+  let sparkHead = 0;
+  function spawnSparks(o, n) {
+    for (let k = 0; k < n; k++) {
+      const i = sparkHead; sparkHead = (sparkHead + 1) % sparks.n;
+      const th = rand(0, 6.28), ph = Math.acos(rand(-1, 1)), sp = rand(1.2, 5.5);
+      sparks.pos[i * 3] = o.x; sparks.pos[i * 3 + 1] = o.y; sparks.pos[i * 3 + 2] = o.z;
+      sparkV[i * 3] = sp * Math.sin(ph) * Math.cos(th);
+      sparkV[i * 3 + 1] = sp * Math.cos(ph) + 1.2;
+      sparkV[i * 3 + 2] = sp * Math.sin(ph) * Math.sin(th);
+      sparkL[i] = rand(0.7, 1);
+      sparks.size[i] = rand(0.05, 0.16);
+      setCol(sparks, i, [0xf6c978, 0xff5c93, 0xffd6e3, 0xffffff][Math.floor(Math.random() * 4)]);
+    }
+    sparks.geo.attributes.aColor.needsUpdate = true;
+    sparks.geo.attributes.aSize.needsUpdate = true;
+  }
+  scene.add(sparks.pts);
+
+  /* falling petals (instanced) */
+  const PN = 170;
+  const fallMat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.6, emissive: 0x2a0412, emissiveIntensity: 0.9 });
+  const fall = new THREE.InstancedMesh(petalGeo(0.34, 0.3, 0.25, 0.12, ROSE, 1.05, 4, 6), fallMat, PN);
+  fall.frustumCulled = false;
+  scene.add(fall);
+  const fp = new Float32Array(PN * 3), fv = new Float32Array(PN * 3), fr = new Float32Array(PN * 3), fs = new Float32Array(PN * 3), fsc = new Float32Array(PN);
+  function resetPetal(i, anywhere) {
+    fp[i * 3] = rand(-11, 11); fp[i * 3 + 1] = anywhere ? rand(-7, 11) : rand(10, 12); fp[i * 3 + 2] = rand(-9, 4);
+    fv[i * 3] = rand(-0.2, 0.2); fv[i * 3 + 1] = rand(-0.9, -0.4); fv[i * 3 + 2] = rand(-0.1, 0.1);
+    for (let a = 0; a < 3; a++) { fr[i * 3 + a] = rand(0, 6.28); fs[i * 3 + a] = rand(-1.8, 1.8); }
+    fsc[i] = rand(0.6, 1.35);
+  }
+  for (let i = 0; i < PN; i++) resetPetal(i, true);
+  let petalHead = 0;
+  function throwPetals(o, n) {
+    for (let k = 0; k < n; k++) {
+      const i = petalHead; petalHead = (petalHead + 1) % PN;
+      fp[i * 3] = o.x; fp[i * 3 + 1] = o.y; fp[i * 3 + 2] = o.z;
+      const th = rand(0, 6.28), sp = rand(1.5, 4);
+      fv[i * 3] = Math.cos(th) * sp; fv[i * 3 + 1] = rand(0.5, 3); fv[i * 3 + 2] = Math.sin(th) * sp;
+    }
+  }
+  const dummy = new THREE.Object3D();
+
+  /* ---------- type: particle "Palesa" + orbiting words ---------- */
+  let text = null, textNorm = null, heartNorm = null, textW = 7, textY = 4;
+  const TN = 3000;
+  let heartMode = false, heartTimer = null;
+  function sampleText(str, n) {
+    const cw = 1400, ch = 440, cv = document.createElement("canvas");
+    cv.width = cw; cv.height = ch;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = `300px ${SCRIPT}`;
+    const tw = Math.max(g.measureText(str).width, 1);
+    g.fillText(str, cw / 2, ch / 2);
+    const d = g.getImageData(0, 0, cw, ch).data, pts = [];
+    for (let y = 0; y < ch; y += 3) for (let x = 0; x < cw; x += 3) if (d[(y * cw + x) * 4 + 3] > 128) pts.push(x, y);
+    const out = new Float32Array(n * 2), m = Math.max(pts.length / 2, 1);
+    for (let i = 0; i < n; i++) {
+      const j = Math.floor(Math.random() * m);
+      out[i * 2] = ((pts[j * 2] || cw / 2) - cw / 2 + rand(-1, 1)) / tw;
+      out[i * 2 + 1] = -((pts[j * 2 + 1] || ch / 2) - ch / 2 + rand(-1, 1)) / tw;
+    }
+    return out;
+  }
+  function sampleHeart(n) {
+    const out = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      const t = rand(0, Math.PI * 2);
+      const r = Math.random() < 0.6 ? 1 + rand(-0.03, 0.03) : Math.sqrt(Math.random());
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+      out[i * 2] = (x * r) / 32 * 0.5;
+      out[i * 2 + 1] = (y * r) / 32 * 0.5 + 0.02;
+    }
+    return out;
+  }
+  function buildText() {
+    textNorm = sampleText("Palesa", TN);
+    heartNorm = sampleHeart(TN);
+    text = makePoints(TN, 0.35);
+    text.vel = new Float32Array(TN * 3);
+    const cA = new THREE.Color(0xffd6e3), cB = new THREE.Color(0xff5c93), cC = new THREE.Color(0xf6c978);
+    for (let i = 0; i < TN; i++) {
+      const r = rand(9, 17), th = rand(0, 6.28), ph = Math.acos(rand(-1, 1));
+      text.pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+      text.pos[i * 3 + 1] = r * Math.cos(ph) + 3;
+      text.pos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+      text.phase[i] = Math.random();
+      text.size[i] = Math.random() < 0.05 ? rand(0.16, 0.24) : rand(0.05, 0.12);
+      const t = clamp(textNorm[i * 2] + 0.5, 0, 1);
+      if (t < 0.5) tmpC.copy(cA).lerp(cB, t * 2); else tmpC.copy(cB).lerp(cC, (t - 0.5) * 2);
+      tmpC.multiplyScalar(rand(0.7, 1.15));
+      text.col[i * 3] = tmpC.r; text.col[i * 3 + 1] = tmpC.g; text.col[i * 3 + 2] = tmpC.b;
+    }
+    text.mat.uniforms.uOpacity.value = 0;
+    text.mat.uniforms.uScale.value = pointScale();
+    scene.add(text.pts);
+  }
+  function pushText(o) {
+    if (!text) return;
+    for (let i = 0; i < TN; i++) {
+      const dx = text.pos[i * 3] - o.x, dy = text.pos[i * 3 + 1] - o.y, dz = text.pos[i * 3 + 2] - o.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz) + 0.001;
+      const f = 0.55 * Math.exp(-d * d * 0.18);
+      text.vel[i * 3] += (dx / d) * f + rand(-0.04, 0.04) * f;
+      text.vel[i * 3 + 1] += (dy / d) * f + rand(-0.04, 0.04) * f;
+      text.vel[i * 3 + 2] += (dz / d) * f + rand(0.0, 0.3) * f;
+    }
+  }
+
+  function wordTex(str, stops, glowCol, px = 120) {
+    const w = 640, h = 200, cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    const g = cv.getContext("2d");
+    g.font = `${px}px ${SCRIPT}`; g.textAlign = "center"; g.textBaseline = "middle";
+    const gr = g.createLinearGradient(80, 0, w - 80, 0);
+    stops.forEach((s, i) => gr.addColorStop(i / (stops.length - 1), s));
+    g.shadowColor = glowCol; g.shadowBlur = 26;
+    g.fillStyle = gr; g.fillText(str, w / 2, h / 2 + 8);
+    g.shadowBlur = 0; g.fillText(str, w / 2, h / 2 + 8);
+    const t = new THREE.CanvasTexture(cv);
+    t.anisotropy = 4;
+    return t;
+  }
+  const rings = [], ghosts = [];
+  function buildWords() {
+    const texes = [
+      wordTex("Palesa", ["#ffe3ec", "#ff86ad", "#ffe3ec"], "rgba(255,92,147,0.9)"),
+      wordTex("Palesa", ["#fff2cf", "#f6c978", "#ffd6e3"], "rgba(246,201,120,0.9)"),
+      wordTex("Palesa", ["#e6dcff", "#ffd6e3", "#f6c978"], "rgba(170,120,255,0.8)")
+    ];
+    const defs = [
+      { r: 3.7, n: 9, tilt: 0.34, tz: 0.08, y: 1.0, speed: 0.14, s: 0.9, tex: 0 },
+      { r: 5.1, n: 12, tilt: -0.24, tz: -0.1, y: 0.7, speed: -0.09, s: 1.1, tex: 1 },
+      { r: 6.8, n: 15, tilt: 0.12, tz: 0.05, y: 1.6, speed: 0.055, s: 1.3, tex: 2 }
+    ];
+    defs.forEach(d => {
+      const outer = new THREE.Group();
+      outer.rotation.set(d.tilt, 0, d.tz); outer.position.y = d.y;
+      const inner = new THREE.Group(); outer.add(inner);
+      const mat = new THREE.SpriteMaterial({ map: texes[d.tex], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
+      for (let j = 0; j < d.n; j++) {
+        const s = new THREE.Sprite(mat), a = (j / d.n) * Math.PI * 2;
+        s.position.set(Math.cos(a) * d.r, Math.sin(a * 3) * 0.18, Math.sin(a) * d.r);
+        s.scale.set(d.s * 1.6, d.s * 0.5, 1);
+        inner.add(s);
+      }
+      scene.add(outer);
+      rings.push({ inner, mat, d });
+    });
+    for (let i = 0; i < 12; i++) {
+      const mat = new THREE.SpriteMaterial({ map: texes[i % 3], transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
+      const s = new THREE.Sprite(mat);
+      const sc = rand(5, 9);
+      s.scale.set(sc * 1.6 * 0.6, sc * 0.5 * 0.6, 1);
+      s.position.set(rand(-16, 16), rand(-8, 12), rand(-30, -18));
+      scene.add(s);
+      ghosts.push({ s, mat, v: rand(0.12, 0.3), ph: rand(0, 6.28) });
+    }
+  }
+
+  const fontsReady = (document.fonts && document.fonts.load)
+    ? Promise.race([
+        Promise.all([document.fonts.load(`300px "Pinyon Script"`), document.fonts.load(`italic 500 30px "Cormorant Garamond"`)]),
+        new Promise(r => setTimeout(r, 2500))
+      ]).catch(() => {})
+    : Promise.resolve();
+  fontsReady.then(() => { buildText(); buildWords(); layoutText(); });
+
+  /* ---------- post-processing ---------- */
+  let composer = null, bloomPass = null;
+  if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
+    try {
+      composer = new THREE.EffectComposer(renderer);
+      composer.addPass(new THREE.RenderPass(scene, camera));
+      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.7, 0.55, 0.42);
+      composer.addPass(bloomPass);
+    } catch (e) { composer = null; }
+  }
+
+  /* ---------- layout ---------- */
+  function pointScale() {
+    return (innerHeight * renderer.getPixelRatio()) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  }
+  function layoutText() {
+    const vh = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * dist;
+    const vw = vh * camera.aspect;
+    textW = Math.min(6.2, vw * 0.7);
+    textY = target.y + vh * 0.26;
+  }
+  function resize() {
+    const w = innerWidth, h = innerHeight;
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    if (composer) composer.setSize(w, h);
+    const a = w / h;
+    dist = a < 1 ? 11 + (1 - a) * 10 : 11;
+    const sc = pointScale();
+    pointMats.forEach(m => { m.uniforms.uScale.value = sc; });
+    layoutText();
+  }
+  addEventListener("resize", resize);
+  resize();
+
+  /* ---------- input ---------- */
+  let mx = 0, my = 0, smx = 0, smy = 0, taps = 0;
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(), nrm = new THREE.Vector3();
+  function hitPoint(cx, cy) {
+    ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    nrm.copy(camera.position).sub(target).normalize();
+    plane.setFromNormalAndCoplanarPoint(nrm, target);
+    const out = new THREE.Vector3();
+    if (!ray.ray.intersectPlane(plane, out)) out.copy(target);
+    return out;
+  }
+  addEventListener("pointermove", e => { mx = (e.clientX / innerWidth) * 2 - 1; my = (e.clientY / innerHeight) * 2 - 1; });
+  canvas.addEventListener("pointerdown", e => {
+    mx = (e.clientX / innerWidth) * 2 - 1; my = (e.clientY / innerHeight) * 2 - 1;
+    if (!started) return;
+    const p = hitPoint(e.clientX, e.clientY);
+    spawnSparks(p, 110);
+    throwPetals(p, 16);
+    pushText(p);
+    sparkle();
+    hintEl.classList.remove("show");
+    taps++;
+    if (taps % 4 === 0) {
+      heartMode = true;
+      clearTimeout(heartTimer);
+      heartTimer = setTimeout(() => { heartMode = false; }, 4500);
+      interruptMsg(HEART_MESSAGE);
+    }
+  });
+
+  /* ---------- loop ---------- */
+  let last = performance.now() / 1000;
+  function frame(ms) {
+    const now = ms / 1000;
+    const dt = Math.min(Math.max(now - last, 0), 0.05);
+    last = now; time += dt;
+    const st = started ? time - startTime : 0;
+    const k = Math.min(dt * 60, 2);
+
+    pointMats.forEach(m => { m.uniforms.uTime.value = time; });
+
+    // bloom of the rose
+    const bloom = started ? ease(clamp((st - 0.5) / 7, 0, 1)) : 0.04 + 0.03 * Math.sin(time * 1.2);
+    for (const p of petals) {
+      const lp = ease(clamp(bloom * 1.35 - p.delay, 0, 1));
+      p.hinge.rotation.x = lerp(p.closed, p.open, lp) + Math.sin(time * 0.8 + p.wob) * 0.025 * M * (0.3 + lp);
+    }
+    flower.rotation.y += dt * 0.09 * M;
+    flower.position.y = Math.sin(time * 0.6) * 0.08 * M;
+    const pulse = 0.5 + 0.5 * Math.sin(time * 1.6);
+    glowMat.opacity = (0.22 + 0.12 * pulse) * (0.5 + 0.5 * bloom);
+    glow.scale.setScalar(1.6 + 0.8 * bloom + 0.15 * pulse);
+    core.intensity = 0.8 + 0.8 * bloom + 0.25 * pulse;
+
+    // camera: pull back as it opens, drift with the pointer
+    smx += (mx - smx) * Math.min(dt * 2.5, 1);
+    smy += (my - smy) * Math.min(dt * 2.5, 1);
+    const pull = started ? lerp(0.58, 1, ease(clamp(st / 7.5, 0, 1))) : 0.58;
+    const d = dist * pull;
+    const sway = Math.sin(time * 0.11) * 0.3 * M + smx * 0.35;
+    camera.position.set(Math.sin(sway) * d, target.y + 1.5 - smy * 1.1 + Math.sin(time * 0.17) * 0.3 * M, Math.cos(sway) * d);
+    camera.lookAt(target.x, target.y - (1 - pull) * 1.2, target.z);
+
+    // fireflies
+    for (let i = 0; i < flies.n; i++) {
+      const f = flyP[i];
+      f.a += f.s * dt * M;
+      flies.pos[i * 3] = Math.cos(f.a) * f.r;
+      flies.pos[i * 3 + 1] = f.y + Math.sin(time * f.f + f.ph) * 0.5;
+      flies.pos[i * 3 + 2] = Math.sin(f.a) * f.r;
+    }
+    flies.geo.attributes.position.needsUpdate = true;
+    flies.mat.uniforms.uOpacity.value = 0.45 + 0.55 * bloom;
+
+    // rising motes
+    for (let i = 0; i < motes.n; i++) {
+      let y = motes.pos[i * 3 + 1] + moteS[i] * dt * M * (0.4 + bloom);
+      if (y > 7) y = 0.4;
+      motes.pos[i * 3 + 1] = y;
+      motes.pos[i * 3] += Math.sin(time * 0.7 + i) * 0.002 * M;
+      motes.alpha[i] = clamp((y - 0.4) / 0.8, 0, 1) * clamp((7 - y) / 2.5, 0, 1);
+    }
+    motes.geo.attributes.position.needsUpdate = true;
+    motes.geo.attributes.aAlpha.needsUpdate = true;
+    motes.mat.uniforms.uOpacity.value = 0.25 + 0.75 * bloom;
+
+    // sparks
+    const drag = Math.pow(0.3, dt);
+    for (let i = 0; i < sparks.n; i++) {
+      if (sparkL[i] <= 0) continue;
+      sparkL[i] -= dt / 1.8;
+      sparkV[i * 3] *= drag; sparkV[i * 3 + 1] = sparkV[i * 3 + 1] * drag - 1.1 * dt; sparkV[i * 3 + 2] *= drag;
+      sparks.pos[i * 3] += sparkV[i * 3] * dt;
+      sparks.pos[i * 3 + 1] += sparkV[i * 3 + 1] * dt;
+      sparks.pos[i * 3 + 2] += sparkV[i * 3 + 2] * dt;
+      sparks.alpha[i] = sparkL[i] > 0 ? Math.pow(sparkL[i], 1.4) : 0;
+    }
+    sparks.geo.attributes.position.needsUpdate = true;
+    sparks.geo.attributes.aAlpha.needsUpdate = true;
+
+    // falling petals
+    const fd = 1 - Math.min(dt * 0.7, 1);
+    for (let i = 0; i < PN; i++) {
+      fv[i * 3 + 1] += (-0.55 - fv[i * 3 + 1]) * Math.min(dt * 0.9, 1);
+      fv[i * 3] = fv[i * 3] * fd + Math.sin(time * 0.7 + i) * 0.18 * dt;
+      fv[i * 3 + 2] *= fd;
+      for (let a = 0; a < 3; a++) {
+        fp[i * 3 + a] += fv[i * 3 + a] * dt * M;
+        fr[i * 3 + a] += fs[i * 3 + a] * dt * M;
+      }
+      if (fp[i * 3 + 1] < -8) resetPetal(i, false);
+      dummy.position.set(fp[i * 3], fp[i * 3 + 1], fp[i * 3 + 2]);
+      dummy.rotation.set(fr[i * 3], fr[i * 3 + 1], fr[i * 3 + 2]);
+      dummy.scale.setScalar(fsc[i]);
+      dummy.updateMatrix();
+      fall.setMatrixAt(i, dummy.matrix);
+    }
+    fall.instanceMatrix.needsUpdate = true;
+
+    // particle name
+    if (text) {
+      const assembling = started && st > 1.0;
+      text.mat.uniforms.uOpacity.value = started ? clamp((st - 0.8) / 2.2, 0, 1) : 0;
+      const hm = heartMode ? 1 : 0;
+      const spring = 0.016 * k, damp = Math.pow(0.9, k);
+      for (let i = 0; i < TN; i++) {
+        const ph = text.phase[i];
+        const i3 = i * 3;
+        if (assembling) {
+          const nx = lerp(textNorm[i * 2], heartNorm[i * 2], hm);
+          const ny = lerp(textNorm[i * 2 + 1], heartNorm[i * 2 + 1], hm);
+          const tx = nx * textW + Math.sin(time * 1.1 + ph * 7) * 0.025;
+          const ty = textY + ny * textW + Math.cos(time * 1.3 + ph * 5) * 0.025;
+          const tz = (ph - 0.5) * 0.35 + 0.8;
+          text.vel[i3] += (tx - text.pos[i3]) * spring;
+          text.vel[i3 + 1] += (ty - text.pos[i3 + 1]) * spring;
+          text.vel[i3 + 2] += (tz - text.pos[i3 + 2]) * spring;
+        }
+        text.vel[i3] *= damp; text.vel[i3 + 1] *= damp; text.vel[i3 + 2] *= damp;
+        text.pos[i3] += text.vel[i3] * k;
+        text.pos[i3 + 1] += text.vel[i3 + 1] * k;
+        text.pos[i3 + 2] += text.vel[i3 + 2] * k;
+      }
+      text.geo.attributes.position.needsUpdate = true;
+    }
+
+    // orbiting words
+    const ringOp = started ? clamp((st - 3) / 3, 0, 1) * 0.6 : 0.08;
+    rings.forEach((r, idx) => {
+      r.inner.rotation.y += r.d.speed * dt * M;
+      r.mat.opacity = ringOp * (0.75 + 0.25 * Math.sin(time * 1.3 + idx * 2));
+    });
+    ghosts.forEach(g => {
+      g.s.position.y += g.v * dt * M;
+      if (g.s.position.y > 14) { g.s.position.y = -10; g.s.position.x = rand(-16, 16); }
+      g.mat.opacity = (started ? clamp((st - 4) / 4, 0, 1) * 0.16 : 0.04) * (0.6 + 0.4 * Math.sin(time * 0.5 + g.ph));
+    });
+
+    if (bloomPass) bloomPass.strength = 0.6 + 0.3 * bloom;
+    if (composer) composer.render(dt); else renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
