@@ -301,8 +301,11 @@ body.no-gl { background: radial-gradient(ellipse at 50% 45%, #3a0f2c 0%, var(--p
   /* the real song; the synthesized music above is the fallback if it cannot play */
   const song = document.getElementById("song");
   let useSong = false;
+  // browsers usually block sound until the first touch, but try right away anyway
+  try { const p0 = song.play(); if (p0 && p0.then) p0.then(() => { useSong = true; song.volume = 1; }).catch(() => {}); } catch (e) {}
   function startMusic() {
-    song.volume = 0;
+    if (useSong && !song.paused) return;
+    song.volume = 0.5;
     let p;
     try { p = song.play(); } catch (e) { startAudio(); return; }
     if (!p || !p.then) { useSong = true; fadeSong(); return; }
@@ -310,9 +313,9 @@ body.no-gl { background: radial-gradient(ellipse at 50% 45%, #3a0f2c 0%, var(--p
   }
   function fadeSong() {
     const t = setInterval(() => {
-      song.volume = Math.min(1, song.volume + 0.05);
+      song.volume = Math.min(1, song.volume + 0.1);
       if (song.volume >= 1) clearInterval(t);
-    }, 150);
+    }, 100);
   }
   function setMuted(m) {
     muted = m;
@@ -340,6 +343,8 @@ body.no-gl { background: radial-gradient(ellipse at 50% 45%, #3a0f2c 0%, var(--p
 
   /* ---------- start ---------- */
   let started = false, startTime = 0, time = 0;
+  // a touch anywhere on the intro opens the garden and starts the song
+  intro.addEventListener("pointerdown", e => { if (e.target !== startBtn) startBtn.click(); });
   startBtn.addEventListener("click", () => {
     if (started) return;
     started = true; startTime = time;
